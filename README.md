@@ -10,7 +10,7 @@ While this module can be used to interact with CAS-authenticated services, it is
 
 When using this module, you are solely responsible for ensuring that your usage complies with all applicable laws and regulations.
 
-The author and contributors to this module disclaim any responsibility for any damages or legal repercussions arising from the use of the module for web scraping or illegal activities.
+The author and contributors to this module disclaim any responsibility for any damages or legal repercussions arising from the use of this module for web scraping or illegal activities.
 
 By using this module, you acknowledge and agree to the terms of this disclaimer.
 
