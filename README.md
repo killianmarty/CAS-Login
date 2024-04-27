@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Nowadays, numerous services use CAS (Central Authentication Service) to authenticate their users. This module provides a nodejs implementation for creating a logged session on a CAS-authenticated service.
+Nowadays, numerous services use CAS (Central Authentication Service) to authenticate their users. This module provides a NodeJS implementation for creating a logged session on a CAS-authenticated service.
 
 ## Disclaimer
 
