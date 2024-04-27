@@ -1,0 +1,16 @@
+{
+  "name": "CAS-Login",
+  "version": "2.0.0",
+  "description": "CAS Login client for nodejs",
+  "main": "CAS-Login.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Killian Marty",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "request": "^2.88.2",
+    "tough-cookie-filestore": "^0.0.1"
+  }
+}

@@ -1,124 +1,114 @@
 const request = require('request');
 const cheerio = require('cheerio');
+const fs = require('fs');
+const FileCookieStore = require('tough-cookie-filestore');
 
 
 class CAS{
-	#userAgent
 	#cookieJar
 
 	constructor(casURL, serviceURL){
 		this.casURL = casURL;
 		this.serviceURL = serviceURL;
-		this.#userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0" 
+		this.userAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0";
+		this.cookieJarFile = "";
+		this.verbose = false;
 	}
 
-	#makeRequest(method, options) {
-	  return new Promise((resolve, reject) => {
-	    if (method === 'GET') {
-	      request.get(options, (error, response, body) => {
-	        if (!error && response.statusCode === 200) {
-	          resolve(body);
-	        } else {
-	          reject(new Error(error));
-	        }
-	      });
-	    } else if (method === 'POST') {
-	      request.post(options, (error, response, body) => {
-	        if (!error) {
-	        	if(response.statusCode == 401) reject(new Error("Login error or invalid credentials."));
-	        	else resolve(body);
-	        } else {
-	          reject(new Error(error));
-	        }
-	      });
-	    } else {
-	      reject(new Error('Unsupported request method.'));
-	    }
-	  });
+	#loadCookies(filePath){
+		if(!fs.existsSync(filePath)) fs.open(filePath, 'w', ()=>{});
+		return request.jar(new FileCookieStore(filePath));
 	}
 
-	#parseHTML(html){
-		return cheerio.load(html);
+	#initCookies(){
+		if(this.cookieJarFile == "") this.#cookieJar = new request.jar();
+		else this.#cookieJar = this.#loadCookies(this.cookieJarFile);
 	}
 
-	#getToken = async ()=>{
-		const tokenRequestOptions = {
-	  	url: this.casURL + "?service=" + this.serviceURL,
-	  	jar: this.#cookieJar,
-	  	headers: {
-				"User-Agent": this.#userAgent
-			}
-	  };
-	  const tokenRequestResponse = await this.#makeRequest('GET', tokenRequestOptions);
+	#getToken(){
+		const options = {
+		  	url: this.casURL + "?service=" + this.serviceURL,
+		  	jar: this.#cookieJar,
+		  	headers : {
+				"User-Agent" : this.userAgent
+			},
+			followAllRedirects: true
+	  	};
 
-	  return this.#parseHTML(tokenRequestResponse)('[name=execution]').val();
+	  	return new Promise((resolve, reject) => {
+		  	request.get(options, (error, response, body)=>{
+		  		if(error) throw new Error(error);
+
+		  		//check the response codes
+		  		if(response.request.uri.href != options.url) reject("Already logged in.");
+		  		else resolve(cheerio.load(body)('[name=execution]').val());
+		  	})
+	  	});
 	}
 
-	#sendLoginRequest = async (username, password, token)=>{
-		//create body
+	#sendLoginRequest(username, password, token){
 		const data = {
 			username: username,
 			password: password,
 			execution: token,
 			_eventId: 'submit',
 	      	geolocation: ''
-		}
+		};
 
-		const loginRequestOptions = {
+		const options = {
 			url: this.casURL + "?service=" + this.serviceURL,
-			jar: this.#cookieJar,
 			form: data,
 			followAllRedirects: true,
-			headers: {
-				"User-Agent": this.#userAgent
+			jar: this.#cookieJar,
+			headers : {
+				"User-Agent" : this.userAgent
 			}
-		}
+		};
 
-		return await this.#makeRequest('POST', loginRequestOptions);
+		return new Promise((resolve, reject) => {
+			request.post(options, (error, response, body)=>{
+				if(error) throw new Error(error);
+
+				//check the reponse codes
+				if(response.statusCode == 401) throw new Error("Login error or invalid credentials.");
+				else resolve(body);
+			})
+		})
 	}
 
-	sendServiceRequest = async (serviceURL=this.serviceURL)=>{
-		const serviceRequestOptions = {
-	  	url: this.serviceURL,
-	  	jar: this.#cookieJar,
-	  	headers: {
-				"User-Agent": this.#userAgent
-			}
-	  };
-	  return await this.#makeRequest('GET', serviceRequestOptions);
+	#info(message){
+		if(this.verbose) console.log(message);
 	}
-
-
 
 	async login(username, password){
-		//init/reset cookieJar
-		this.#cookieJar = new request.jar();
+		//init cookieJar
+		this.#info("Initializing cookies...");
+		this.#initCookies();
 
-		//getToken
-		const token = await this.#getToken();
-		
-		//sendLoginRequest
-		const loginResponse = await this.#sendLoginRequest(username, password, token);
+		//try getting token
+		let token;
+		this.#info("Getting token...")
+		try{
+			token = await this.#getToken();
+		}catch(error){
+			if(error === "Already logged in.") {
+				this.#info(error);
+				return this.#cookieJar;
+			}
+			else throw new Error(error);
+		}
 
+		//send login request
+		this.#info("Sending login request...");
+		await this.#sendLoginRequest(username, password, token);
+
+		this.#info("Sucess.");
 		return this.#cookieJar;
 	}
 
 	//getters
 	getCookieJar(){
 		return this.#cookieJar;
-	}
-
-	//setters
-	setUserAgent(userAgent){
-		this.#userAgent = userAgent;
-	}
-
-	setCasURL(casURL){
-		this.casURL = casURL;
-	}
-
-	setServiceURL(serviceURL){
-		this.serviceURL = serviceURL;
 	}
 
 };
